@@ -32,16 +32,37 @@ jobs:
       - name: Build Release APK
         run: ./gradlew assembleRelease
 
+      - name: Sign Release APK
+        uses: r0adkll/sign-android-release@v1
+        id: sign_app
+        with:
+          releaseDirectory: app/build/outputs/apk/release
+          signingKeyBase64: ${{ secrets.SIGNING_KEY }}
+          alias: ${{ secrets.KEY_ALIAS }}
+          keyStorePassword: ${{ secrets.KEY_STORE_PASSWORD }}
+          keyPassword: ${{ secrets.KEY_PASSWORD }}
+        env:
+          BUILD_TOOLS_VERSION: "34.0.0"
+        continue-on-error: true
+
       - name: Upload Debug APK
         uses: actions/upload-artifact@v4
         with:
           name: oo-chat-debug
           path: app/build/outputs/apk/debug/app-debug.apk
 
-      - name: Upload Release APK
+      - name: Upload Signed Release APK
+        if: steps.sign_app.outcome == 'success'
         uses: actions/upload-artifact@v4
         with:
-          name: oo-chat-release
+          name: oo-chat-release-signed
+          path: ${{ steps.sign_app.outputs.signedReleaseFile }}
+
+      - name: Upload Unsigned Release APK
+        if: steps.sign_app.outcome != 'success'
+        uses: actions/upload-artifact@v4
+        with:
+          name: oo-chat-release-unsigned
           path: app/build/outputs/apk/release/app-release-unsigned.apk
 
   release:
@@ -52,15 +73,24 @@ jobs:
       contents: write
 
     steps:
-      - name: Download Release APK
-        uses: actions/download-artifact@v4
-        with:
-          name: oo-chat-release
-
       - name: Download Debug APK
         uses: actions/download-artifact@v4
         with:
           name: oo-chat-debug
+
+      - name: Try download signed release
+        uses: actions/download-artifact@v4
+        with:
+          name: oo-chat-release-signed
+        continue-on-error: true
+        id: download_signed
+
+      - name: Try download unsigned release
+        if: steps.download_signed.outcome != 'success'
+        uses: actions/download-artifact@v4
+        with:
+          name: oo-chat-release-unsigned
+        continue-on-error: true
 
       - name: Get version from tag
         id: get_version
@@ -68,8 +98,13 @@ jobs:
 
       - name: Rename APKs
         run: |
-          mv app-release-unsigned.apk oo-chat-${{ steps.get_version.outputs.VERSION }}-release.apk
-          mv app-debug.apk oo-chat-${{ steps.get_version.outputs.VERSION }}-debug.apk
+          mv app-debug.apk oo-chat-${{ steps.get_version.outputs.VERSION }}.apk
+          # Try to find and rename release APK if it exists
+          if [ -f "app-release-signed.apk" ]; then
+            mv app-release-signed.apk oo-chat-${{ steps.get_version.outputs.VERSION }}-release.apk
+          elif [ -f "app-release-unsigned.apk" ]; then
+            mv app-release-unsigned.apk oo-chat-${{ steps.get_version.outputs.VERSION }}-unsigned.apk
+          fi
 
       - name: Create Release
         uses: softprops/action-gh-release@v1
@@ -80,17 +115,23 @@ jobs:
 
             Native Android chat client for ConnectOnion agents.
 
-            ### Downloads
-            - **oo-chat-${{ steps.get_version.outputs.VERSION }}-debug.apk** - Debug build (recommended for testing)
-            - **oo-chat-${{ steps.get_version.outputs.VERSION }}-release.apk** - Release build (unsigned)
+            ### Download
+            - **oo-chat-${{ steps.get_version.outputs.VERSION }}.apk** - Ready to install
 
             ### Features
             - Connect to agents by address (0x...)
             - Ed25519 signed messages
             - Real-time streaming (tool calls, thinking, responses)
             - Multi-turn conversations with session persistence
+
+            ### Installation
+            1. Download the APK file
+            2. Enable "Install from unknown sources" in Android settings
+            3. Open the APK to install
           files: |
+            oo-chat-${{ steps.get_version.outputs.VERSION }}.apk
             oo-chat-${{ steps.get_version.outputs.VERSION }}-release.apk
-            oo-chat-${{ steps.get_version.outputs.VERSION }}-debug.apk
+            oo-chat-${{ steps.get_version.outputs.VERSION }}-unsigned.apk
+          fail_on_unmatched_files: false
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
