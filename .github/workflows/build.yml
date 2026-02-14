@@ -43,7 +43,10 @@ jobs:
           keyPassword: ${{ secrets.KEY_PASSWORD }}
         env:
           BUILD_TOOLS_VERSION: "34.0.0"
-        continue-on-error: true
+
+      - name: Rename signed APK
+        run: |
+          mv ${{ steps.sign_app.outputs.signedReleaseFile }} app/build/outputs/apk/release/app-release-signed.apk
 
       - name: Upload Debug APK
         uses: actions/upload-artifact@v4
@@ -52,18 +55,10 @@ jobs:
           path: app/build/outputs/apk/debug/app-debug.apk
 
       - name: Upload Signed Release APK
-        if: steps.sign_app.outcome == 'success'
         uses: actions/upload-artifact@v4
         with:
-          name: oo-chat-release-signed
-          path: ${{ steps.sign_app.outputs.signedReleaseFile }}
-
-      - name: Upload Unsigned Release APK
-        if: steps.sign_app.outcome != 'success'
-        uses: actions/upload-artifact@v4
-        with:
-          name: oo-chat-release-unsigned
-          path: app/build/outputs/apk/release/app-release-unsigned.apk
+          name: oo-chat-release
+          path: app/build/outputs/apk/release/app-release-signed.apk
 
   release:
     needs: build
@@ -78,19 +73,10 @@ jobs:
         with:
           name: oo-chat-debug
 
-      - name: Try download signed release
+      - name: Download Release APK
         uses: actions/download-artifact@v4
         with:
-          name: oo-chat-release-signed
-        continue-on-error: true
-        id: download_signed
-
-      - name: Try download unsigned release
-        if: steps.download_signed.outcome != 'success'
-        uses: actions/download-artifact@v4
-        with:
-          name: oo-chat-release-unsigned
-        continue-on-error: true
+          name: oo-chat-release
 
       - name: Get version from tag
         id: get_version
@@ -98,13 +84,8 @@ jobs:
 
       - name: Rename APKs
         run: |
-          mv app-debug.apk oo-chat-${{ steps.get_version.outputs.VERSION }}.apk
-          # Try to find and rename release APK if it exists
-          if [ -f "app-release-signed.apk" ]; then
-            mv app-release-signed.apk oo-chat-${{ steps.get_version.outputs.VERSION }}-release.apk
-          elif [ -f "app-release-unsigned.apk" ]; then
-            mv app-release-unsigned.apk oo-chat-${{ steps.get_version.outputs.VERSION }}-unsigned.apk
-          fi
+          mv app-debug.apk oo-chat-${{ steps.get_version.outputs.VERSION }}-debug.apk
+          mv app-release-signed.apk oo-chat-${{ steps.get_version.outputs.VERSION }}.apk
 
       - name: Create Release
         uses: softprops/action-gh-release@v1
@@ -116,7 +97,8 @@ jobs:
             Native Android chat client for ConnectOnion agents.
 
             ### Download
-            - **oo-chat-${{ steps.get_version.outputs.VERSION }}.apk** - Ready to install
+            - **oo-chat-${{ steps.get_version.outputs.VERSION }}.apk** - Signed release (recommended)
+            - **oo-chat-${{ steps.get_version.outputs.VERSION }}-debug.apk** - Debug build
 
             ### Features
             - Connect to agents by address (0x...)
@@ -130,8 +112,6 @@ jobs:
             3. Open the APK to install
           files: |
             oo-chat-${{ steps.get_version.outputs.VERSION }}.apk
-            oo-chat-${{ steps.get_version.outputs.VERSION }}-release.apk
-            oo-chat-${{ steps.get_version.outputs.VERSION }}-unsigned.apk
-          fail_on_unmatched_files: false
+            oo-chat-${{ steps.get_version.outputs.VERSION }}-debug.apk
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
