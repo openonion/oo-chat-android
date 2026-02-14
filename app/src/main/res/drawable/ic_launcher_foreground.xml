@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <!-- Chat bubble icon - OO Chat -->
+    <group
+        android:translateX="27"
+        android:translateY="27">
+        <!-- Chat bubble background -->
+        <path
+            android:fillColor="#FFFFFF"
+            android:pathData="M27,0 C41.9,0 54,12.1 54,27 C54,41.9 41.9,54 27,54 C23.5,54 20.2,53.3 17.1,52 L6,54 L8,43.5 C5.1,39.3 3.3,34.1 3.3,28.5 C3.3,12.8 13.6,0 27,0 Z"/>
+        <!-- Inner dots representing chat -->
+        <path
+            android:fillColor="#6750A4"
+            android:pathData="M18,24 m-4,0 a4,4 0 1,1 8,0 a4,4 0 1,1 -8,0"/>
+        <path
+            android:fillColor="#6750A4"
+            android:pathData="M27,24 m-4,0 a4,4 0 1,1 8,0 a4,4 0 1,1 -8,0"/>
+        <path
+            android:fillColor="#6750A4"
+            android:pathData="M36,24 m-4,0 a4,4 0 1,1 8,0 a4,4 0 1,1 -8,0"/>
+    </group>
+</vector>
